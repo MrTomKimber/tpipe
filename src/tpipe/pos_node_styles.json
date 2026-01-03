@@ -1,0 +1,157 @@
+{
+
+    "ADJ" : {
+        "color" : "#23b4dc", 
+        "border_color" : "#23b4dc",
+        "border_size" : 2,
+        "size" : 30, 
+        "shape" : "rectangle",
+        "hover" : "ADJ"
+    },
+    "ADP" : {
+        "color" : "#f79ccc", 
+        "border_color" : "#f79ccc",
+        "border_size" : 2,
+        "size" : 25, 
+        "shape" : "rectangle",
+        "hover" : "ADP"
+    },
+    "ADV" : {
+        "color" : "#af6f2b", 
+        "border_color" : "#af6f2b",
+        "border_size" : 2,
+        "size" : 30, 
+        "shape" : "rectangle",
+        "hover" : "ADV"
+    },
+    "AUX" : {
+        "color" : "#13ec9a", 
+        "border_color" : "#13ec9a",
+        "border_size" : 2,
+        "size" : 30, 
+        "shape" : "hexagon",
+        "hover" : "AUX"
+    }, 
+    "CONJ": {
+        "color" : "#0022ee", 
+        "border_color" : "#0022ee",
+        "border_size" : 2,
+        "size" : 5, 
+        "shape" : "circle",
+        "hover" : "CONJ", 
+        "notes" : "Deprecated"
+    },
+    "CCONJ" : {
+        "color" : "#eeeeee", 
+        "border_color" : "#000000", 
+        "border_size" : 2, 
+        "size" : 30, 
+        "shape" : "circle",
+        "hover" : "CCONJ"
+    }, 
+    "DET" : {
+        "color" : "#777777", 
+        "border_color" : "#000000",
+        "border_size" : 2,
+        "size" : 15, 
+        "shape" : "rectangle", 
+        "hover" : "DET"
+    },
+    "INTJ": {
+        "color" : "#0022ee", 
+        "border_color" : "#26000e",
+        "border_size" : 2,
+        "size" : 5, 
+        "shape" : "circle",
+        "hover" : "INTJ"
+    },
+    "NOUN" : {
+        "color" : "#ec9a13", 
+        "border_color" : "#ec9a13",
+        "border_size" : 2,
+        "size" : 30, 
+        "shape" : "rectangle",
+        "hover" : "NOUN"
+    },
+    "NUM" : {
+        "color" : "#ff000d", 
+        "border_color" : "#000000",
+        "border_size" : 2,
+        "size" : 10, 
+        "shape" : "circle",
+        "hover" : "NUM"
+    }, 
+    "PART" : {
+        "color" : "#eeeeee", 
+        "border_color" : "#ee0000", 
+        "border_size" : 2, 
+        "size" : 30, 
+        "shape" : "circle",
+        "hover" : "PART"
+    }, 
+    "PRON" : {
+        "color" : "#dc8a03", 
+        "border_color" : "#dc8a03",
+        "border_size" : 2,
+        "size" : 30, 
+        "shape" : "rectangle",
+        "hover" : "PRON"
+    },
+    "PROPN" : {
+        "color" : "#f28c13", 
+        "border_color" : "#f28c13",
+        "border_size" : 2,
+        "size" : 30, 
+        "shape" : "rectangle",
+        "hover" : "PROPN"
+    },
+    "PUNCT" : {
+        "color" : "#eeeeee", 
+        "border_color" : "#000000",
+        "border_size" : 2,
+        "size" : 10, 
+        "shape" : "circle",
+        "hover" : "PUNCT"
+    }, 
+    "SCONJ": {
+        "color" : "#0022ee", 
+        "border_color" : "#26000e",
+        "border_size" : 2,
+        "size" : 5, 
+        "shape" : "circle",
+        "hover" : "SCONJ"
+    },
+    "SYM": {
+        "color" : "#0022ee", 
+        "border_color" : "#26000e",
+        "border_size" : 2,
+        "size" : 5, 
+        "shape" : "circle",
+        "hover" : "SYM"
+    },
+    "VERB" : {
+        "color" : "#83ed1c", 
+        "border_color" : "#83ed1c",
+        "border_size" : 2,
+        "size" : 30, 
+        "shape" : "rectangle",
+        "hover" : "VERB", 
+        "label_size": 30
+    },
+    "X": {
+        "color" : "#0022ee", 
+        "border_color" : "#26000e",
+        "border_size" : 2,
+        "size" : 5, 
+        "shape" : "circle",
+        "hover" : "Unknown"
+    },
+    "SPACE" : {
+        "color" : "#eeeeee", 
+        "border_color" : "#f2cd49",
+        "border_size" : 2,
+        "size" : 10, 
+        "shape" : "circle",
+        "hover" : "SPACE"
+    }    
+}

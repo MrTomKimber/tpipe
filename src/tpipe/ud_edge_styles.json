@@ -1,0 +1,20 @@
+{
+    "ROOT" : {
+        "color" : "#e2b300", 
+        "border_color" : "#c09800",
+        "border_size" : 2,
+        "size" : 4, 
+        "label_size" : 10,
+        "hover" : "Circular Root Edge", 
+        "click" : "Root"
+    }, 
+    "appos" : {
+        "color" : "#ee2030", 
+        "border_color" : "#ee2030",
+        "border_size" : 2,
+        "size" : 2, 
+        "label_size" : 20,
+        "hover" : "appos", 
+        "click" : "appos"
+    }
+}

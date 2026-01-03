@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+spacy = "*"
+lxml = "*"
+gravis = "*"
+pytest = "*"
+pandas = "*"
+networkx = "*"
+lxml-html-clean = "*"
+
+[dev-packages]
+jupyter = "*"
+notebook = "*"
+matplotlib = "*"
+sphinx = "*"
+pylint = "*"
+black = "*"
+pytest-cov = "*"
+
+[requires]
+python_version = "3.12"
