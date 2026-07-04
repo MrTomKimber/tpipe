@@ -23,42 +23,42 @@ class NodeData:
     tag: Optional[str] = None
     text: Optional[str] = None
     text_slot: Optional[TextSlot] = None
-    attrs: dict = field(default_factory=dict)
+    attributes: dict = field(default_factory=dict)
     source_refs: list[SourceRef] = field(default_factory=list)
 
-    def label(self):
+    def label(self) -> str | None:
         if self.node_type == "element":
             return self.tag
-        elif self.node_type=="text":
+        if self.node_type=="text":
             return f"({self.text_slot})\"{self.text}\""
-        elif self.node_type=="comment":
+        if self.node_type=="comment":
             return f'<!--{self.text or ""}-->'
     
-    def todict(self):
+    def to_dict(self) -> dict:
         return {k:v for k,v in asdict(self).items() if not k.startswith("_")}
 
 class GraphBuilder:
     def __init__(self):
-        self.g = nx.MultiDiGraph()
+        self.graph = nx.MultiDiGraph()
         self._ids = itertools.count(1)
     
-    def new_id(self, prefix:str)->str:
+    def new_node_id(self, prefix:str)->str:
         return f"{prefix}{next(self._ids)}"
 
     def add_element_node(self, el : _Element) -> str:
-        node_id = self.new_id("e")
+        node_id = self.new_node_id("e")
         xpath = el.getroottree().getpath(el)
         node_data = NodeData(
             node_type="element",
             tag = el.tag.lower() if isinstance(el.tag, str) else None,
-            attrs = dict(el.attrib),
+            attributes = dict(el.attrib),
             source_refs=[SourceRef(xpath=xpath, tag=getattr(el, "tag", None))]
         )
-        self.g.add_node(node_id, data=node_data)
+        self.graph.add_node(node_id, data=node_data)
         return node_id
 
     def add_text_node(self, text: str, slot: TextSlot, owner: _Element) -> str:
-        node_id = self.new_id("t")
+        node_id = self.new_node_id("t")
         xpath = owner.getroottree().getpath(owner)
         node_data = NodeData(
                 node_type="text",
@@ -66,30 +66,27 @@ class GraphBuilder:
                 text_slot=slot,
                 source_refs=[SourceRef(xpath=xpath, tag=getattr(owner, "tag", None))]
             )
-        self.g.add_node(
+        self.graph.add_node(
             node_id,
             data=node_data
         )
         return node_id
     
     def add_comment_node(self, el: _Element) -> str:
-        node_id = self.new_id("c")
+        node_id = self.new_node_id("c")
         xpath = el.getroottree().getpath(el)
         node_data = NodeData(
             node_type="comment",
             text=el.text,
             source_refs=[SourceRef(xpath=xpath, tag="#comment")],
         )
-        self.g.add_node(node_id, data=node_data)
+        self.graph.add_node(node_id, data=node_data)
         return node_id
 
-    def add_contains_link(self, parent_id: str, child_id: str, order: int):
-        self.g.add_edge(parent_id, child_id, key=f"contains:{order}", kind="contains", order=order)
+    def add_contains_edge(self, parent_id: str, child_id: str, order: int):
+        self.graph.add_edge(parent_id, child_id, key=f"contains:{order}", kind="contains", order=order)
 
-    def add_next_link(self, left_id: str, right_id: str):
-        self.g.add_edge(left_id, right_id, key="next", kind="next")
-
-    def build_from_element(self, el: _Element) -> str:
+    def build_subtree(self, el: _Element) -> str:
         if el.tag is Comment:
             return self.add_comment_node(el)
 
@@ -101,7 +98,7 @@ class GraphBuilder:
             ordered_children.append(text_id)
 
         for child in el:
-            child_id = self.build_from_element(child)
+            child_id = self.build_subtree(child)
             ordered_children.append(child_id)
 
             if child.tail is not None:
@@ -109,10 +106,7 @@ class GraphBuilder:
                 ordered_children.append(tail_id)
 
         for idx, child_id in enumerate(ordered_children):
-            self.add_contains_link(parent_id, child_id, idx)
-
-        for left, right in zip(ordered_children, ordered_children[1:]):
-            self.add_next_link(left, right)
+            self.add_contains_edge(parent_id, child_id, idx)
 
         return parent_id
     
@@ -123,21 +117,22 @@ def parse_html_root(source: str) -> HtmlElement:
 def html_to_graph(source: str) -> nx.MultiDiGraph:
     root = parse_html_root(source)
     builder = GraphBuilder()
-    builder.build_from_element(root)
-    return builder.g
+    builder.build_subtree(root)
+    rebuild_next_edges(builder.graph)
+    return builder.graph
 
 
-def ordered_children(G, parent_id):
+def get_ordered_children(G, parent_id):
     children = []
     for _, child_id, _, data in G.out_edges(parent_id, keys=True, data=True):
         if data.get("kind") == "contains":
             children.append((data["order"], child_id))
     return [child for _, child in sorted(children, key=lambda x: x[0])]
 
-def walk_reconstruction(G, node_id) -> Iterator[str]:
+def walk_subtree(G, node_id) -> Iterator[str]:
     yield node_id
-    for child_id in ordered_children(G, node_id):
-        yield from walk_reconstruction(G, child_id)
+    for child_id in get_ordered_children(G, node_id):
+        yield from walk_subtree(G, child_id)
 
 
 def get_node_data(G, node_id):
@@ -163,24 +158,30 @@ def clone_node_data_with_sources(data: NodeData, extra_sources: Optional[list[So
                 existing.add(key)
     return cloned
 
-def add_ordered_children(out: nx.MultiDiGraph, parent_id: str, child_ids: list[str]) -> None:
+def add_ordered_children(out: nx.MultiDiGraph, 
+                         parent_id: str, 
+                         child_ids: list[str]) -> None:
     for idx, child_id in enumerate(child_ids):
-        out.add_edge(parent_id, child_id, key=f"contains:{idx}", kind="contains", order=idx)
-    for left, right in zip(child_ids, child_ids[1:]):
-        out.add_edge(left, right, key="next", kind="next")
+        out.add_edge(parent_id, 
+                     child_id, 
+                     key=f"contains:{idx}", 
+                     kind="contains", 
+                     order=idx)
 
-def new_like_node_id(node_id: str, counters: dict[str, int]) -> str:
+def new_rewritten_node_id(node_id: str, counters: dict[str, int]) -> str:
     prefix = node_id[:1] if node_id else "n"
     counters[prefix] = counters.get(prefix, 0) + 1
     return f"{prefix}n{counters[prefix]}"
+
 # ============================================================
 
 
-def serialize_attrs(attrs: dict) -> str:
-    if not attrs:
+
+def serialize_attributes(attributes: dict) -> str:
+    if not attributes:
         return ""
     parts = []
-    for key, value in attrs.items():
+    for key, value in attributes.items():
         if value is None:
             continue
         parts.append(f' {key}="{escape(str(value), quote=True)}"')
@@ -211,16 +212,16 @@ def _serialize_html_node(G, node_id, parent_tag=None) -> str:
         return ""
 
     tag = data.tag or "div"
-    attrs = serialize_attrs(data.attrs)
+    attributes = serialize_attributes(data.attributes)
 
     if tag in VOID_TAGS:
-        return f"<{tag}{attrs}>"
+        return f"<{tag}{attributes}>"
 
     inner = []
-    for child_id in ordered_children(G, node_id):
+    for child_id in get_ordered_children(G, node_id):
         inner.append(_serialize_html_node(G, child_id, parent_tag=tag))
 
-    return f"<{tag}{attrs}>{''.join(inner)}</{tag}>"
+    return f"<{tag}{attributes}>{''.join(inner)}</{tag}>"
 
 
 NORMALISATION_RULES = {
@@ -230,15 +231,15 @@ NORMALISATION_RULES = {
 
 # Rewrite Functions
 # =====================================================================
-def default_mutate(
-    G_in: nx.MultiDiGraph,
-    G_out: nx.MultiDiGraph,
+def default_rewrite_node(
+    input_graph: nx.MultiDiGraph,
+    output_graph: nx.MultiDiGraph,
     node_id: str,
     rewritten_children: list[str],
     counters: dict[str, int],
     rules: dict
 ) -> list[str]:
-    data = get_node_data(G_in, node_id)
+    data = get_node_data(input_graph, node_id)
 
     if data.node_type == "comment":
         return []
@@ -247,95 +248,161 @@ def default_mutate(
         text = data.text or ""
         if not text.strip():
             return []
-        new_id = new_like_node_id(node_id, counters)
-        G_out.add_node(new_id, data=clone_node_data_with_sources(data))
-        return [new_id]
+        new_node_id = new_rewritten_node_id(node_id, counters)
+        output_graph.add_node(new_node_id, data=clone_node_data_with_sources(data))
+        return [new_node_id]
 
     if data.node_type != "element":
         return []
 
     tag = (data.tag or "").lower()
 
-    if tag in rules.get("PRUNE", set()):
-        return []
-
     if tag in rules.get("UNWRAP", set()):
         source_refs = data.source_refs
         for child_id in rewritten_children:
-            child_data = get_node_data(G_out, child_id)
+            child_data = get_node_data(output_graph, child_id)
             child_data.source_refs = clone_node_data_with_sources(
                 child_data,
                 extra_sources=source_refs
             ).source_refs
         return rewritten_children
 
-    new_id = new_like_node_id(node_id, counters)
+    new_node_id = new_rewritten_node_id(node_id, counters)
     new_data = clone_node_data_with_sources(data)
-    G_out.add_node(new_id, data=new_data)
-    add_ordered_children(G_out, new_id, rewritten_children)
-    return [new_id]
+    if tag in rules.get("PRUNE", set()):
+        new_data.attributes = dict(new_data.attributes or {})
+        new_data.attributes["_prune_root"] = True
+
+    output_graph.add_node(new_node_id, data=new_data)
+    add_ordered_children(output_graph, new_node_id, rewritten_children)
+
+    return [new_node_id]
 
 
-def rewrite_subtree(
-    G_in: nx.MultiDiGraph,
-    G_out: nx.MultiDiGraph,
+def rewrite_node_subtree(
+    input_graph: nx.MultiDiGraph,
+    output_graph: nx.MultiDiGraph,
     node_id: str,
     mutate: Callable,
     counters: dict[str, int],
     rules: dict
 ) -> list[str]:
     rewritten_children = []
-    for child_id in ordered_children(G_in, node_id):
+    for child_id in get_ordered_children(input_graph, node_id):
         rewritten_children.extend(
-            rewrite_subtree(G_in, G_out, child_id, mutate, counters, rules)
+            rewrite_node_subtree(input_graph, output_graph, child_id, mutate, counters, rules)
         )
-    return mutate(G_in, G_out, node_id, rewritten_children, counters, rules)
+    return mutate(input_graph, output_graph, node_id, rewritten_children, counters, rules)
 # =========================================================================
 
-def normalise_graph(
-    G_in: nx.MultiDiGraph,
-    rules: Optional[dict] = None,
-    mutate: Optional[Callable] = None
-) -> nx.MultiDiGraph:
-    rules = rules or NORMALISATION_RULES
-    mutate = mutate or default_mutate
+def sweep_pruned_subtrees(graph: nx.MultiDiGraph) -> None:
 
-    G_out = nx.MultiDiGraph()
-    G_out.graph.update(deepcopy(G_in.graph))
+    contains = nx.DiGraph(
+        (u, v)
+        for u, v, _, d in graph.edges(keys=True, data=True)
+        if d.get("kind") == "contains"
+    )
+
+    prune_roots_set = [
+        n for n, nd in graph.nodes(data=True)
+        if (dict(nd["data"].attributes or {})).get("_prune_root")
+    ]
+
+    prune_roots = [
+        n for n in prune_roots_set
+        if not any(
+            p in prune_roots_set
+            for p, _, _, d in graph.in_edges(n, keys=True, data=True)
+            if d.get("kind") == "contains"
+        )
+    ]
+
+    doomed = set()
+    for n in prune_roots:
+        doomed.add(n)
+        doomed.update(nx.descendants(contains, n))
+
+    graph.remove_nodes_from(doomed)
+
+def rebuild_next_edges(graph: nx.MultiDiGraph) -> None:
+    next_edges_to_remove = [
+        (u, v, k)
+        for u, v, k, d in graph.edges(keys=True, data=True)
+        if d.get("kind") == "next"
+    ]
+    graph.remove_edges_from(next_edges_to_remove)
+
+    children_by_parent: dict[str, list[tuple[int, str]]] = {}
+
+    for parent_id, child_id, key, data in graph.edges(keys=True, data=True):
+        if data.get("kind") != "contains":
+            continue
+        order = data.get("order", 0)
+        children_by_parent.setdefault(parent_id, []).append((order, child_id))
+
+    for parent_id, ordered_children in children_by_parent.items():
+        ordered_children.sort(key=lambda x: x[0])
+        child_ids = [child_id for _, child_id in ordered_children]
+
+        for left, right in zip(child_ids, child_ids[1:]):
+            graph.add_edge(
+                left,
+                right,
+                key=f"next:{left}:{right}",
+                kind="next",
+            )
+
+
+def normalise_graph(
+    input_graph: nx.MultiDiGraph,
+    rules: Optional[dict] = None,
+    rewrite_func: Optional[Callable] = None
+) -> nx.MultiDiGraph:
+    
+    rules = rules or NORMALISATION_RULES
+    rewrite_func = rewrite_func or default_rewrite_node
+
+    output_graph = nx.MultiDiGraph()
+    output_graph.graph.update(deepcopy(input_graph.graph))
 
     counters: dict[str, int] = {}
-    old_root = root_node_id(G_in)
-    new_roots = rewrite_subtree(G_in, G_out, old_root, mutate, counters, rules)
+    old_root = root_node_id(input_graph)
+    new_roots = rewrite_node_subtree(input_graph, output_graph, old_root, rewrite_func, counters, rules)
 
     if not new_roots:
         synthetic_root = "en1"
-        G_out.add_node(
+        output_graph.add_node(
             synthetic_root,
             data=NodeData(
                 node_type="element",
                 tag="div",
-                attrs={},
+                attributes={},
                 source_refs=[]
             )
         )
-        G_out.graph["root"] = synthetic_root
-        return G_out
+        output_graph.graph["root"] = synthetic_root
+        
+    else:
 
-    if len(new_roots) == 1:
-        G_out.graph["root"] = new_roots[0]
-        return G_out
+        if len(new_roots) == 1:
+            output_graph.graph["root"] = new_roots[0]
+        else:
+            # Happy Path - new_roots returned with sub_tree contents of size > 1
+            synthetic_root = "en1"
+            output_graph.add_node(
+                synthetic_root,
+                data=NodeData(
+                    node_type="element",
+                    tag="div",
+                    attributes={},
+                    source_refs=[]
+                )
+            )
+            add_ordered_children(output_graph, synthetic_root, new_roots)
+            output_graph.graph["root"] = synthetic_root
 
-    synthetic_root = "en1"
-    G_out.add_node(
-        synthetic_root,
-        data=NodeData(
-            node_type="element",
-            tag="div",
-            attrs={},
-            source_refs=[]
-        )
-    )
-    add_ordered_children(G_out, synthetic_root, new_roots)
-    G_out.graph["root"] = synthetic_root
-    return G_out
+
+    sweep_pruned_subtrees(output_graph)
+    rebuild_next_edges(output_graph)
+    return output_graph
 
