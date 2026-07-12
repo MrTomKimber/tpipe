@@ -25,6 +25,8 @@ class NodeData:
     text_slot: Optional[TextSlot] = None
     attributes: dict = field(default_factory=dict)
     source_refs: list[SourceRef] = field(default_factory=list)
+    node_metrics: dict = field(default_factory=dict)
+    subtree_metrics: dict = field(default_factory=dict)
 
     def label(self) -> str | None:
         if self.node_type == "element":
@@ -405,4 +407,3 @@ def normalise_graph(
     sweep_pruned_subtrees(output_graph)
     rebuild_next_edges(output_graph)
     return output_graph
-
